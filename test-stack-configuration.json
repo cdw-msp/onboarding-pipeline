@@ -1,9 +1,9 @@
 {
   "Parameters" : {
-    "environment" : "dev",
-    "Availability Zone 1" : "us-west-2a",
-    "Availability Zone 2" : "us-west-2b",
-    "EC2 Key Pair" : "petclinic-cicd",    
-    "InstanceWebAMI" : "ami-a9d09ed1"
+    "EnvironmentName" : "dev",
+    "AvailabilityZone1" : "us-west-2a",
+    "AvailabilityZone2" : "us-west-2b",
+    "KeyName" : "petclinic-cicd",    
+    "InstanceWebAmi" : "ami-a9d09ed1"
   }
 }
