@@ -1,6 +1,6 @@
 {
   "Parameters" : {
-    "EnvironmentName" : "dev",
+    "EnvironmentName" : "prod",
     "AvailabilityZone1" : "us-west-2a",
     "AvailabilityZone2" : "us-west-2b",
     "KeyName" : "petclinic-cicd",    
