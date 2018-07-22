@@ -1,0 +1,151 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description:  webtier with load-balancer(elb+ec2)
+Parameters:
+  EC2KeyPairName:
+    Description: EC2 key pair name for SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+  InstanceWebAmi:
+    Description: "AMI ID for web servers"
+    Type: "String"
+    Default: "ami-642bba0d"
+    AllowedPattern: "^ami-[0-9a-fA-F]{8,8}"
+  InstanceWebType:
+    Description: Web EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - m1.small
+      - m1.medium
+      - m1.large
+      - m1.xlarge
+      - m2.xlarge
+      - m2.2xlarge
+      - m2.4xlarge
+      - m3.xlarge
+      - m3.2xlarge
+      - c1.medium
+      - c1.xlarge
+      - cc1.4xlarge
+      - cc2.8xlarge
+      - cg1.4xlarge
+    ConstraintDescription: must be a valid EC2 instance type.
+    
+
+  NetworkStackName:
+    Type: String
+    Description: VpcId of the vpc we are launching these load balancers in.  This
+      comes from the output of vpc.template
+Mappings: {}
+Resources:
+  WebServerGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+          - !ImportValue
+              "Fn::Sub": "${NetworkStackName}-PrivateSubnet1ID"
+          - !ImportValue
+              "Fn::Sub": "${NetworkStackName}-PrivateSubnet2ID"
+      LaunchConfigurationName:
+        Ref: LaunchConfig
+      MinSize: '1'
+      MaxSize: '5'
+      DesiredCapacity: '1'
+      LoadBalancerNames:
+        - Ref: ApiServerLoadBalancer
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          files:
+            "/tmp/instanceinfo":
+              mode: '000644'
+              owner: root
+              group: root
+          commands:
+            a-os-install:
+              command: "/tmp/ossetup > /tmp/ossetup.log"
+            b-app-install:
+              command: "/tmp/django_app_installer > /var/log/django_app_installer.log"
+    Properties:
+      ImageId:
+        Ref: InstanceWebAmi
+      SecurityGroups:
+        - Fn::ImportValue: !Sub "${NetworkStackName}-AppSecurityGroupID"
+      InstanceType:
+        Ref: InstanceWebType
+      KeyName:
+        Ref: EC2KeyPairName
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - "#!/bin/bash\n"
+            - 'yum install -y httpd'
+            - 'systemctl start httpd'
+            - 'systemctl enable httpd'
+            - 'cfn-init -s '
+            - Ref: AWS::StackId
+            - " -r LaunchConfig "
+            - "         --region "
+            - Ref: AWS::Region
+            - "\n"
+  ApiServerLoadBalancer:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      LoadBalancerName:
+        Fn::Join:
+        - "-"
+        - - api-server
+          - Fn::ImportValue: !Sub "${NetworkStackName}-AppSecurityGroupID"
+      SecurityGroups:
+      - Fn::ImportValue: !Sub "${NetworkStackName}-AppSecurityGroupID"
+      Subnets:
+          - !ImportValue
+              "Fn::Sub": "${NetworkStackName}-PrivateSubnet1ID"
+          - !ImportValue
+              "Fn::Sub": "${NetworkStackName}-PrivateSubnet2ID"
+      Listeners:
+      - LoadBalancerPort: '80'
+        InstancePort: '80'
+        Protocol: HTTP
+      HealthCheck:
+        Target:
+          Fn::Join:
+          - ''
+          - - 'HTTP:'
+            - '80'
+            - "/status"
+        HealthyThreshold: '5'
+        UnhealthyThreshold: '3'
+        Interval: '30'
+        Timeout: '5'
+Outputs:
+  ApiServerLoadBalancerName:
+    Description: public api load balancer name
+    Value: !Ref AWS::StackName
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiServerLoadBalancerName"
+  ApiServerLoadBalancerName:
+    Description: Api loadbalancer name
+    Value: !Ref AWS::StackName
+    Export:
+        Name: !Sub "${AWS::StackName}-ApiServerLoadBalancerName"
+  ApiServerLoadBalancer:
+    Description: public api load balancer
+    Value:
+      Ref: ApiServerLoadBalancer
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiServerLoadBalancer"
+  ApiServerLoadBalancerDns:
+    Description: api-server load balancer DNS
+    Value:
+      Fn::GetAtt:
+      - ApiServerLoadBalancer
+      - DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiServerLoadBalancerDns"
+
+      
