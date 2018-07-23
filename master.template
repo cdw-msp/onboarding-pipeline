@@ -2,7 +2,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 
 
-Description: VPC + Load Balancer + EC2+ Database
+Description: VPC + Load Balancer + EC2+ 
 
 
 Parameters:
